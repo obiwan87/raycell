@@ -1,24 +1,23 @@
 #include "raylib.h"
 #include <errno.h>
 #include <stdio.h>
-#include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <stdbool.h>
 
 /* Window dimensions in pixels. */
-#define WINDOW_WIDTH  1200
-#define WINDOW_HEIGHT 1200
+#define WINDOW_WIDTH  800
+#define WINDOW_HEIGHT 800
 
 /* Visual size of a single cell in pixels. */
-#define CELL_WIDTH   5
-#define CELL_HEIGHT  5
+#define CELL_WIDTH   4
+#define CELL_HEIGHT  4
 
 /* Total number of cells in the grid.
  * NOTE: This code assumes a square grid where side = sqrt(CELLS).
  */
-#define CELLS        200 * 200
+#define CELLS        (200*200)
 
 /* Canonical binary states used by current rules/rendering.
  * NOTE: The code is mostly prepared for extension, but many rules assume DEAD/ALIVE.
@@ -210,11 +209,11 @@ static void wolfram_apply_rule_1d(const Grid *currentGrid, WolframCode ruleCode,
     outCells[currentGrid->size - 1].state = DEAD;
 
     for (int i = 1; i < currentGrid->size - 1; i++) {
-        int l = currentGrid->cells[i - 1].state;
-        int c = currentGrid->cells[i].state;
-        int r = currentGrid->cells[i + 1].state;
+        const int l = currentGrid->cells[i - 1].state;
+        const int c = currentGrid->cells[i].state;
+        const int r = currentGrid->cells[i + 1].state;
 
-        int pattern = (l << 2) | (c << 1) | (r << 0);
+        const int pattern = (l << 2) | (c << 1) | (r << 0);
         outCells[i].state = (ruleCode >> pattern) & 1;
     }
 }
@@ -252,7 +251,7 @@ static void wolfram_run_step(WolframRun *run) {
  * NOTE: This function is not used in raycell_loop(), but remains as a separate demo path.
  */
 static void wolfram_run_render(WolframRun* run, Camera2D camera, float intervalSeconds, float* timerSeconds) {
-    float dt = GetFrameTime();
+    const float dt = GetFrameTime();
 
     if (IsKeyDown(KEY_SPACE)) {
         wolfram_run_step(run);
@@ -268,12 +267,12 @@ static void wolfram_run_render(WolframRun* run, Camera2D camera, float intervalS
         wolfram_run_step(run);
     }
 
-    int screen_h = GetScreenHeight();
-    int grid_pixel_h = (run->current_step + 1) * CELL_HEIGHT;
+    const int screen_h = GetScreenHeight();
+    const int grid_pixel_h = (run->current_step + 1) * CELL_HEIGHT;
 
     /* Auto-scroll once the grid becomes taller than a threshold. */
     if (grid_pixel_h * 4 > 3 * screen_h) {
-        camera.target = (Vector2){ 0.0f, grid_pixel_h - 3.0f * screen_h / 4.0f };
+        camera.target = (Vector2){ 0.0f, (float)grid_pixel_h - 3.0f * (float)screen_h / 4.0f };
     } else {
         camera.target = (Vector2){ 0.0f, 0.0f };
     }
@@ -283,7 +282,7 @@ static void wolfram_run_render(WolframRun* run, Camera2D camera, float intervalS
 
     BeginMode2D(camera);
     for (int step = 0; step <= run->current_step; step++) {
-        Grid* grid = &run->grids[step];
+        const Grid* grid = &run->grids[step];
         for (int cell = 0; cell < grid->size; cell++) {
             DrawRectangle(cell * CELL_WIDTH,
                           step * CELL_HEIGHT,
@@ -355,24 +354,24 @@ static int ca_count_alive(Cell** neighborCells, size_t neighborCount) {
  * - out_neighbors: must have capacity neighborhood.size/2.
  */
 static void ca_get_neighbors(CellularAutomaton* automaton, int cellIndex, Cell** out_neighbors) {
-    int side = (int)sqrt((double)automaton->currentGenBuf.size);
+    const int side = (int)sqrt((double)automaton->currentGenBuf.size);
 
     /* Convert linear index to (x,y). */
-    int x = cellIndex % side;
-    int y = cellIndex / side;
+    const int x = cellIndex % side;
+    const int y = cellIndex / side;
 
     /* For each offset pair, compute wrapped neighbor coordinates. */
     int out_i = 0;
     for (int i = 0; i + 1 < automaton->neighborhood.size; i += 2) {
-        int dx = automaton->neighborhood.offsets[i];
-        int dy = automaton->neighborhood.offsets[i + 1];
+        const int dx = automaton->neighborhood.offsets[i];
+        const int dy = automaton->neighborhood.offsets[i + 1];
 
         int nx = (x + dx) % side;
         int ny = (y + dy) % side;
         if (nx < 0) nx += side;
         if (ny < 0) ny += side;
 
-        int n_idx = ny * side + nx;
+        const int n_idx = ny * side + nx;
         out_neighbors[out_i++] = &automaton->currentGenBuf.cells[n_idx];
     }
 }
@@ -394,20 +393,20 @@ static void ca_get_neighbors(CellularAutomaton* automaton, int cellIndex, Cell**
  */
 static int ca_apply_bs_rule(const char* b, const char* s, int currentState, int aliveNeighbors) {
     if (currentState == DEAD) {
-        int b_len = (int)strlen(b);
+        const int b_len = (int)strlen(b);
         bool birth = false;
         for (int i = 0; i < b_len && !birth; i++) {
-            int n = b[i] - '0';
+            const int n = b[i] - '0';
             birth = (aliveNeighbors == n);
         }
         return birth ? ALIVE : DEAD;
     }
 
     if (currentState == ALIVE) {
-        int s_len = (int)strlen(s);
+        const int s_len = (int)strlen(s);
         bool survival = false;
         for (int i = 0; i < s_len && !survival; i++) {
-            int n = s[i] - '0';
+            const int n = s[i] - '0';
             survival = (aliveNeighbors == n);
         }
         return survival ? ALIVE : DEAD;
@@ -449,11 +448,7 @@ static int ca_transition_bs_rule(const void* env, const Cell* currentCell, Cell*
  * Returns NULL on error and sets errno to EINVAL if src == NULL.
  */
 static char* dup_cstr_or_null(const char *src) {
-    if (src == NULL) {
-        errno = EINVAL;
-        return NULL;
-    }
-    size_t n = strlen(src);
+    const size_t n = strlen(src);
     char *dst = (char*)malloc(n + 1);
     if (!dst) return NULL;
     memcpy(dst, src, n + 1); // includes '\0'
@@ -508,7 +503,9 @@ Transition* transition_alloc_bs_rule(const char *b, const char *s) {
 
 /* Free a Transition previously allocated with transition_alloc_bs_rule(). */
 void transition_free_bs_rule(Transition* t) {
-    BSRule* bsRule = (BSRule*) t->env;
+    if (t == NULL)
+        return;
+    BSRule* bsRule = t->env;
     free(bsRule->b);
     free(bsRule->s);
     free(bsRule);
@@ -521,7 +518,7 @@ void transition_free_bs_rule(Transition* t) {
  * env is expected to be int* (percentAlive).
  */
 void grid_init_random_percent_alive(const void* env, Grid* grid) {
-    int percentAlive = *(int*)env;
+    const int percentAlive = *(int*)env;
     grid_randomize(grid, percentAlive);
 }
 
@@ -561,7 +558,7 @@ void grid_initializer_free_percent_alive(GridInitializer* gridInitializer) {
 void grid_init_random_single_alive_cell(const void* env, Grid* grid) {
     (void) env;
 
-    size_t randomCell = (size_t)rand() % (size_t)grid->size;
+    const size_t randomCell = (size_t)rand() % (size_t)grid->size;
     printf("Random Cell: %lu\n", (unsigned long)randomCell);
 
     for(int i = 0; i < grid->size; i++) {
@@ -609,13 +606,13 @@ static void ca_step_forward(CellularAutomaton* ca) {
      */
     Cell* neighbors[MAX_NEIGHBORHOOD / 2] = {0};
 
-    size_t neighborCount = (size_t)ca->neighborhood.size / 2;
+    const size_t neighborCount = (size_t)ca->neighborhood.size / 2;
 
     for (int i = 0; i < ca->currentGenBuf.size; i++) {
-        Cell* currentCell = &ca->currentGenBuf.cells[i];
+        const Cell* currentCell = &ca->currentGenBuf.cells[i];
         ca_get_neighbors(ca, i, neighbors);
 
-        int newState = ca->transition.fn(ca->transition.env, currentCell, neighbors, neighborCount);
+        const int newState = ca->transition.fn(ca->transition.env, currentCell, neighbors, neighborCount);
         ca->nextGenBuf.cells[i].state = newState;
     }
 
@@ -637,7 +634,7 @@ static void ca_step_forward(CellularAutomaton* ca) {
 static void ca_step_back(CellularAutomaton* automaton) {
     if (automaton->historyIndex <= 0) return;
 
-    int prevIndex = automaton->historyIndex - 1;
+    const int prevIndex = automaton->historyIndex - 1;
     memcpy(
         automaton->currentGenBuf.cells,
         automaton->history + (prevIndex % HISTORY_SIZE) * automaton->currentGenBuf.size,
@@ -653,11 +650,11 @@ static void ca_step_back(CellularAutomaton* automaton) {
  * - size == side*side, where side = sqrt(size).
  */
 static void ca_draw_matrix(CellularAutomaton* automaton) {
-    int side = (int)sqrt((double)automaton->currentGenBuf.size);
+    const int side = (int)sqrt((double)automaton->currentGenBuf.size);
 
     for (int row = 0; row < side; row++) {
         for (int col = 0; col < side; col++) {
-            Cell* cell = &automaton->currentGenBuf.cells[row * side + col];
+            const Cell* cell = &automaton->currentGenBuf.cells[row * side + col];
             DrawRectangle(col * CELL_WIDTH,
                           row * CELL_HEIGHT,
                           CELL_WIDTH, CELL_HEIGHT,
@@ -708,21 +705,18 @@ static void raycell_loop(void) {
     configs_count++;
 
     /* Cellular automaton runtime state. */
-    CellularAutomaton ca = {
-        .neighborhood = neighborhood,
-        .currentGenBuf = {
-            .dim = 2,
-            .size = CELLS
-        },
-        .nextGenBuf = {
-            .dim = 2,
-            .size = CELLS
-        },
-        .historyIndex = 0
-    };
+    CellularAutomaton* ca = malloc(sizeof(CellularAutomaton));
+    ca->neighborhood = neighborhood;
+
+    ca->currentGenBuf.dim = 2;
+    ca->currentGenBuf.size = CELLS;
+
+    ca->nextGenBuf.dim = 2;
+    ca->nextGenBuf.size = CELLS;
+    ca->historyIndex = 0;
 
     /* Seed initial grid using config 0 initializer. */
-    gofGridInitializer->fn(gofGridInitializer->env, &ca.currentGenBuf);
+    gofGridInitializer->fn(gofGridInitializer->env, &ca->currentGenBuf);
 
     while (!WindowShouldClose()) {
         /* Detect digit keys (top row and keypad) to switch configs. */
@@ -743,28 +737,28 @@ static void raycell_loop(void) {
         }
 
         /* Apply active config to CA. */
-        GridInitializer* activeInitializer = configs[active_config].gridInitializer;
-        Transition* activeTransition = configs[active_config].transition;
-        ca.transition = *activeTransition;
+        const GridInitializer* activeInitializer = configs[active_config].gridInitializer;
+        const Transition* activeTransition = configs[active_config].transition;
+        ca->transition = *activeTransition;
 
         if (shouldReset) {
-            activeInitializer->fn(activeInitializer->env, &ca.currentGenBuf);
-            ca.historyIndex = 0;
+            activeInitializer->fn(activeInitializer->env, &ca->currentGenBuf);
+            ca->historyIndex = 0;
         }
 
         /* Manual stepping. */
         if (IsKeyPressed(KEY_SPACE)) {
-            ca_step_forward(&ca);
+            ca_step_forward(ca);
         }
 
         if (IsKeyPressed(KEY_LEFT)) {
-            ca_step_back(&ca);
+            ca_step_back(ca);
         }
 
         /* Draw current generation. */
         BeginDrawing();
         ClearBackground(BACKGROUND);
-        ca_draw_matrix(&ca);
+        ca_draw_matrix(ca);
         EndDrawing();
     }
 
@@ -776,6 +770,8 @@ static void raycell_loop(void) {
 
     grid_initializer_free_percent_alive(gofGridInitializer);
     grid_initializer_free_single_cell_alive(replicatorInitializer);
+
+    free(ca);
 }
 
 /* Program entry point. */
