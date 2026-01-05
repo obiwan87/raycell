@@ -8,8 +8,8 @@ LIBS = -lraylib -lm
 
 all: $(TARGET)
 
-$(TARGET): raycell.c
-	$(CC) $(CFLAGS) -o $(TARGET) $(TARGET).c $(LIBS)
+$(TARGET): raycell.c ca_core.c
+	$(CC) $(CFLAGS) -o $(TARGET) raycell.c ca_core.c $(LIBS)
 
 clean:
 	rm -f $(TARGET) *.o
