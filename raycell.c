@@ -181,8 +181,14 @@ static void raycell_loop(void)
     /* Seed initial grid using config 0 initializer. */
     gofGridInitializer->fn(gofGridInitializer->env, &ca->currentGenBuf);
 
+    
+    float interval = 0.1f;
+    float timer = 0.0f;
     while (!WindowShouldClose())
     {
+        float dt = GetFrameTime(); 
+        timer += dt;
+
         /* Detect digit keys (top row and keypad) to switch configs. */
         int digit = -1;
         for (int i = 0; i <= 9; i++)
@@ -231,6 +237,11 @@ static void raycell_loop(void)
         if (IsKeyPressed(KEY_LEFT))
         {
             ca_step_back(ca);
+        }
+
+        if(timer >= interval) {
+            timer -= interval;
+            ca_step_forward(ca);
         }
 
         /* Draw current generation. */
